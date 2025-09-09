@@ -1,4 +1,8 @@
-import { AbstractPaymentProvider, MedusaError, PaymentSessionStatus } from "@medusajs/framework/utils";
+import {
+  AbstractPaymentProvider,
+  MedusaError,
+  PaymentSessionStatus,
+} from "@medusajs/framework/utils";
 import {
   AuthorizePaymentInput,
   AuthorizePaymentOutput,
@@ -33,7 +37,12 @@ export interface PaypalPaymentError {
 }
 
 const optionsSchema = z.object({
-  clientId: z.string().min(1, "PayPal client ID is required"),
+  clientId: z
+    .string()
+    .min(1, "PayPal client ID is required")
+    .describe(
+      "PayPal client ID used for authentication. This field is required."
+    ),
   clientSecret: z.string().min(1, "PayPal client secret is required"),
   isSandbox: z.boolean().default(false),
   webhookId: z.string().optional(),
@@ -41,27 +50,70 @@ const optionsSchema = z.object({
   includeCustomerData: z.boolean().default(false),
 });
 
-export type AlphabitePaypalPluginOptions = z.infer<typeof optionsSchema>;
+export type AlphabitePaypalPluginOptionsType = z.infer<typeof optionsSchema>;
+
+export type AlphabitePaypalPluginOptions = {
+  /**
+   * PayPal client ID used for authentication.
+   * This field is required.
+   */
+  clientId: string;
+
+  /**
+   * PayPal client secret used for authentication.
+   * This field is required.
+   */
+  clientSecret: string;
+
+  /**
+   * Whether to use PayPal’s sandbox environment for testing.
+   * Default: false
+   */
+  isSandbox?: boolean;
+
+  /**
+   * PayPal webhook ID to validate incoming webhooks.
+   * Optional.
+   */
+  webhookId?: string;
+
+  /**
+   * Whether to include shipping data in transactions and responses.
+   * Default: false
+   */
+  includeShippingData?: boolean;
+
+  /**
+   * Whether to include customer data (e.g., name, email) in transactions and responses.
+   * Default: false
+   */
+  includeCustomerData?: boolean;
+};
 
 type InjectedDependencies = {
   logger: Logger;
   paymentModuleService: any;
 };
 
-interface InitiatePaymentInputCustom extends Omit<InitiatePaymentInput, "data"> {
+interface InitiatePaymentInputCustom
+  extends Omit<InitiatePaymentInput, "data"> {
   data?: Pick<PaypalCreateOrderInput, "items" | "shipping_info" | "email">;
 }
 
-interface AuthorizePaymentInputData extends Pick<PaypalCreateOrderInput, "items" | "shipping_info" | "email"> {}
+interface AuthorizePaymentInputData
+  extends Pick<PaypalCreateOrderInput, "items" | "shipping_info" | "email"> {}
 
-export default class PaypalModuleService extends AbstractPaymentProvider<AlphabitePaypalPluginOptions> {
+export default class PaypalModuleService extends AbstractPaymentProvider<AlphabitePaypalPluginOptionsType> {
   static identifier = "paypal";
 
   protected client: PaypalService;
   protected logger: Logger;
   protected paymentModuleService: any;
 
-  constructor(container: InjectedDependencies, private readonly options: AlphabitePaypalPluginOptions) {
+  constructor(
+    container: InjectedDependencies,
+    private readonly options: AlphabitePaypalPluginOptionsType
+  ) {
     super(container, options);
 
     this.logger = container.logger;
@@ -70,25 +122,39 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     this.client = new PaypalService(this.options);
   }
 
-  static validateOptions(options: AlphabitePaypalPluginOptions): void {
+  static validateOptions(options: AlphabitePaypalPluginOptionsType): void {
     const result = optionsSchema.safeParse(options);
 
     if (!result.success) {
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, `Invalid PayPal plugin options: ${result.error.message}`);
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        `Invalid PayPal plugin options: ${result.error.message}`
+      );
     }
   }
 
-  async capturePayment(input: CapturePaymentInput): Promise<CapturePaymentOutput> {
+  async capturePayment(
+    input: CapturePaymentInput
+  ): Promise<CapturePaymentOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       if (!input.data.id) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "PayPal order ID is required to capture payment");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "PayPal order ID is required to capture payment"
+        );
       }
 
-      if (input.data.status === PaymentSessionStatus.CAPTURED || input.data.status === "COMPLETED") {
+      if (
+        input.data.status === PaymentSessionStatus.CAPTURED ||
+        input.data.status === "COMPLETED"
+      ) {
         return {
           data: {
             ...input.data,
@@ -112,13 +178,21 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     } catch (error) {
       this.logger.error("PayPal capture payment error:", error);
 
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Failed to capture PayPal payment");
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Failed to capture PayPal payment"
+      );
     }
   }
 
-  async authorizePayment(input: AuthorizePaymentInput): Promise<AuthorizePaymentOutput> {
+  async authorizePayment(
+    input: AuthorizePaymentInput
+  ): Promise<AuthorizePaymentOutput> {
     if (!input.data) {
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Payment data is required"
+      );
     }
 
     const data = input.data as unknown as AuthorizePaymentInputData | undefined;
@@ -136,7 +210,9 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
       );
     }
 
-    const isAuthorized = paypalData?.purchaseUnits?.[0].payments?.captures?.[0]?.status === CaptureStatus.Completed;
+    const isAuthorized =
+      paypalData?.purchaseUnits?.[0].payments?.captures?.[0]?.status ===
+      CaptureStatus.Completed;
 
     if (!isAuthorized) {
       try {
@@ -158,7 +234,8 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
         if (!captureData) {
           const error: PaypalPaymentError = {
             code: "404",
-            message: "Payment declined. Please try again or use a different card.",
+            message:
+              "Payment declined. Please try again or use a different card.",
             retryable: true,
           };
 
@@ -175,7 +252,10 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
         const paymentStatus = captureData?.status || CaptureStatus.Declined;
         const processorResponse = captureData?.processorResponse;
 
-        const { error = undefined } = this.checkPaymentStatus(paymentStatus, processorResponse);
+        const { error = undefined } = this.checkPaymentStatus(
+          paymentStatus,
+          processorResponse
+        );
 
         return {
           status: PaymentSessionStatus.PENDING,
@@ -192,7 +272,10 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
       const paymentStatus = captureData?.status || CaptureStatus.Declined;
       const processorResponse = captureData?.processorResponse;
 
-      const { status, error = undefined } = this.checkPaymentStatus(paymentStatus, processorResponse);
+      const { status, error = undefined } = this.checkPaymentStatus(
+        paymentStatus,
+        processorResponse
+      );
 
       if (status === CaptureStatus.Declined) {
         const newOrder = await this.client.createOrder({
@@ -226,7 +309,10 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
   async cancelPayment(input: CancelPaymentInput): Promise<CancelPaymentOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       const orderId = input.data["id"] as string;
@@ -248,20 +334,31 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     } catch (error) {
       this.logger.error("PayPal cancel payment error:", error);
 
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Failed to cancel PayPal payment");
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Failed to cancel PayPal payment"
+      );
     }
   }
 
-  async initiatePayment(input: InitiatePaymentInputCustom): Promise<InitiatePaymentOutput> {
+  async initiatePayment(
+    input: InitiatePaymentInputCustom
+  ): Promise<InitiatePaymentOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       const { amount, currency_code, context, data } = input;
 
       if (!amount || !currency_code) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Amount and currency code are required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Amount and currency code are required"
+        );
       }
 
       const order = await this.client.createOrder({
@@ -287,14 +384,20 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
   async refundPayment(input: RefundPaymentInput): Promise<RefundPaymentOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       const orderId = input.data["id"] as string;
-      const purchaseUnits = (input?.data?.["purchaseUnits"] as Order["purchaseUnits"]) || [];
+      const purchaseUnits =
+        (input?.data?.["purchaseUnits"] as Order["purchaseUnits"]) || [];
 
       const captureIds = purchaseUnits
-        ?.flatMap((item) => item?.payments?.captures?.map((capture) => capture.id))
+        ?.flatMap((item) =>
+          item?.payments?.captures?.map((capture) => capture.id)
+        )
         .filter((id) => id !== undefined);
 
       if (!orderId || !captureIds) {
@@ -316,14 +419,20 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     } catch (error) {
       this.logger.error("PayPal refund payment error:", error);
 
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Failed to refund PayPal payment");
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Failed to refund PayPal payment"
+      );
     }
   }
 
   async deletePayment(input: DeletePaymentInput): Promise<DeletePaymentOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       const orderId = input.data["id"] as string;
@@ -348,26 +457,40 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     }
   }
 
-  async getPaymentStatus(input: GetPaymentStatusInput): Promise<GetPaymentStatusOutput> {
+  async getPaymentStatus(
+    input: GetPaymentStatusInput
+  ): Promise<GetPaymentStatusOutput> {
     try {
       if (!input.data) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "Payment data is required");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "Payment data is required"
+        );
       }
 
       const order_id = input.data["id"] as string;
 
       if (!order_id) {
-        throw new MedusaError(MedusaError.Types.INVALID_DATA, "PayPal order ID is required to cancel payment");
+        throw new MedusaError(
+          MedusaError.Types.INVALID_DATA,
+          "PayPal order ID is required to cancel payment"
+        );
       }
 
       const order = await this.client.retrieveOrder(order_id);
 
       if (!order || !order.status) {
-        throw new MedusaError(MedusaError.Types.NOT_FOUND, `PayPal order with ID ${order_id} not found`);
+        throw new MedusaError(
+          MedusaError.Types.NOT_FOUND,
+          `PayPal order with ID ${order_id} not found`
+        );
       }
 
       return {
-        status: order.status === "COMPLETED" ? PaymentSessionStatus.CAPTURED : PaymentSessionStatus.AUTHORIZED,
+        status:
+          order.status === "COMPLETED"
+            ? PaymentSessionStatus.CAPTURED
+            : PaymentSessionStatus.AUTHORIZED,
       };
     } catch (error) {
       this.logger.error("PayPal get payment status error:", error);
@@ -393,7 +516,9 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     throw new MedusaError(MedusaError.Types.INVALID_DATA, "Not implemented");
   }
 
-  async getWebhookActionAndData(payload: WebhookPayload): Promise<WebhookActionResult> {
+  async getWebhookActionAndData(
+    payload: WebhookPayload
+  ): Promise<WebhookActionResult> {
     try {
       const { data, headers } = payload;
 
@@ -435,12 +560,14 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
     const processorResponseMap: Record<string, PaypalPaymentError> = {
       "0500": {
         code: "0500 - DO_NOT_HONOR",
-        message: "Card refused by issuer. Please try again or use a different card.",
+        message:
+          "Card refused by issuer. Please try again or use a different card.",
         retryable: false,
       },
       "9500": {
         code: "9500 - SUSPECTED_FRAUD",
-        message: "Suspected fraudulent card. Please try again and use a different card.",
+        message:
+          "Suspected fraudulent card. Please try again and use a different card.",
         retryable: false,
       },
       "5400": {
@@ -450,12 +577,14 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
       },
       "5120": {
         code: "5120 - INSUFFICIENT_FUNDS",
-        message: "Insufficient funds. Please try again or use a different card.",
+        message:
+          "Insufficient funds. Please try again or use a different card.",
         retryable: true,
       },
       "00N7": {
         code: "00N7 - CVV_FAILURE",
-        message: "Incorrect security code. Please try again or use a different card.",
+        message:
+          "Incorrect security code. Please try again or use a different card.",
         retryable: true,
       },
       "1330": {
@@ -476,9 +605,12 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
 
       case "DECLINED":
         if (processorResponse?.responseCode) {
-          const errorDetails = processorResponseMap[processorResponse.responseCode] || {
+          const errorDetails = processorResponseMap[
+            processorResponse.responseCode
+          ] || {
             code: processorResponse.responseCode,
-            message: "Payment declined. Please try again or use a different card.",
+            message:
+              "Payment declined. Please try again or use a different card.",
             retryable: false,
           };
 
@@ -496,7 +628,8 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
           status,
           error: {
             code: "DECLINED",
-            message: "Payment declined. Please try again or use a different card.",
+            message:
+              "Payment declined. Please try again or use a different card.",
             retryable: false,
           },
         };

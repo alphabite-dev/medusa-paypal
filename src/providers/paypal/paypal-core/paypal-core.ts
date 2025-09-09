@@ -17,7 +17,7 @@ import {
 } from "@paypal/paypal-server-sdk";
 import { CartAddressDTO, CartLineItemDTO } from "@medusajs/framework/types";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
-import { AlphabitePaypalPluginOptions } from "../service";
+import { AlphabitePaypalPluginOptionsType } from "../service";
 import { MedusaError } from "@medusajs/framework/utils";
 
 export interface PaypalCreateOrderInput {
@@ -48,8 +48,10 @@ export class PaypalService {
     webhookId,
     includeCustomerData,
     includeShippingData,
-  }: AlphabitePaypalPluginOptions) {
-    const environment = isSandbox ? Environment.Sandbox : Environment.Production;
+  }: AlphabitePaypalPluginOptionsType) {
+    const environment = isSandbox
+      ? Environment.Sandbox
+      : Environment.Production;
 
     this.client = new Client({
       clientCredentialsAuthCredentials: {
@@ -69,7 +71,9 @@ export class PaypalService {
       },
     });
 
-    this.baseUrl = isSandbox ? "https://api-m.sandbox.paypal.com" : "https://api-m.paypal.com";
+    this.baseUrl = isSandbox
+      ? "https://api-m.sandbox.paypal.com"
+      : "https://api-m.paypal.com";
 
     this.clientId = clientId;
     this.clientSecret = clientSecret;
@@ -85,7 +89,9 @@ export class PaypalService {
 
   async getAccessToken(): Promise<string> {
     try {
-      const authorization = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString("base64");
+      const authorization = Buffer.from(
+        `${this.clientId}:${this.clientSecret}`
+      ).toString("base64");
 
       const authRes = await this.authController.requestToken({
         authorization: `Basic ${authorization}`,
@@ -124,7 +130,8 @@ export class PaypalService {
     const hasItems = paypalItems.length > 0;
 
     const shippingData: ShippingDetails | false = !!shipping_info && {
-      ...(this.includeCustomerData && this.mapCustomerData({ email, shipping_info })),
+      ...(this.includeCustomerData &&
+        this.mapCustomerData({ email, shipping_info })),
       ...(this.includeShippingData && this.mapShippingData(shipping_info)),
       type: FulfillmentType.Shipping,
     };
@@ -154,7 +161,8 @@ export class PaypalService {
         applicationContext: {
           ...(this.includeShippingData &&
             shippingData && {
-              shippingPreference: OrderApplicationContextShippingPreference.SetProvidedAddress,
+              shippingPreference:
+                OrderApplicationContextShippingPreference.SetProvidedAddress,
             }),
           userAction: OrderApplicationContextUserAction.PayNow,
         },
@@ -212,30 +220,38 @@ export class PaypalService {
     body: object;
   }): Promise<{ body: object; status: "SUCCESS" | "FAILURE" }> => {
     if (!this.webhookId) {
-      throw new MedusaError(MedusaError.Types.INVALID_DATA, "Webhook ID is not set");
+      throw new MedusaError(
+        MedusaError.Types.INVALID_DATA,
+        "Webhook ID is not set"
+      );
     }
 
     const accessToken = await this.getAccessToken();
 
-    const verifyWebhookRes = await fetch(`${this.baseUrl}/v1/notifications/verify-webhook-signature`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        auth_algo: headers["paypal-auth-algo"],
-        cert_url: headers["paypal-cert-url"],
-        transmission_id: headers["paypal-transmission-id"],
-        transmission_sig: headers["paypal-transmission-sig"],
-        transmission_time: headers["paypal-transmission-time"],
-        webhook_id: this.webhookId,
-        webhook_event: body,
-      }),
-    });
+    const verifyWebhookRes = await fetch(
+      `${this.baseUrl}/v1/notifications/verify-webhook-signature`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          auth_algo: headers["paypal-auth-algo"],
+          cert_url: headers["paypal-cert-url"],
+          transmission_id: headers["paypal-transmission-id"],
+          transmission_sig: headers["paypal-transmission-sig"],
+          transmission_time: headers["paypal-transmission-time"],
+          webhook_id: this.webhookId,
+          webhook_event: body,
+        }),
+      }
+    );
 
     if (!verifyWebhookRes.ok) {
-      throw new Error(`Failed to verify webhook signature: ${verifyWebhookRes.statusText}`);
+      throw new Error(
+        `Failed to verify webhook signature: ${verifyWebhookRes.statusText}`
+      );
     }
 
     const verifyWebhookData = await verifyWebhookRes.json();
@@ -253,12 +269,15 @@ export class PaypalService {
   }: {
     email?: string;
     shipping_info: PaypalCreateOrderInput["shipping_info"];
-  }): Pick<ShippingDetails, "name" | "emailAddress" | "phoneNumber"> | undefined {
+  }):
+    | Pick<ShippingDetails, "name" | "emailAddress" | "phoneNumber">
+    | undefined {
     if (!this.includeCustomerData || !shipping_info) {
       return undefined;
     }
 
-    const parsedPhoneNumber = !!shipping_info?.phone && parsePhoneNumberFromString(shipping_info.phone);
+    const parsedPhoneNumber =
+      !!shipping_info?.phone && parsePhoneNumberFromString(shipping_info.phone);
 
     return {
       name: {
@@ -277,7 +296,11 @@ export class PaypalService {
   private mapShippingData(
     shipping_info: PaypalCreateOrderInput["shipping_info"]
   ): Pick<ShippingDetails, "address"> | undefined {
-    if (!this.includeShippingData || !shipping_info || !shipping_info.country_code) {
+    if (
+      !this.includeShippingData ||
+      !shipping_info ||
+      !shipping_info.country_code
+    ) {
       return undefined;
     }
 

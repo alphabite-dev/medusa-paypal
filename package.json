@@ -1,13 +1,22 @@
 {
   "name": "@alphabite/medusa-paypal",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Alphabite's Medusa Paypal Plugin",
   "author": "Alphabite (https://alphabite.io)",
   "license": "MIT",
+  "main": "./.medusa/server/src/index.js",
+  "types": "./.medusa/types/index.d.ts",
   "files": [
-    ".medusa/server"
+    ".medusa/server",
+    ".medusa/types"
   ],
   "exports": {
+    ".": {
+      "types": "./.medusa/types/index.d.ts",
+      "import": "./.medusa/server/src/index.js",
+      "require": "./.medusa/server/src/index.js",
+      "default": "./.medusa/server/src/index.js"
+    },
     "./package.json": "./package.json",
     "./.medusa/server/src/modules/*": "./.medusa/server/src/modules/*/index.js",
     "./providers/*": "./.medusa/server/src/providers/*/index.js",
@@ -34,7 +43,8 @@
     "paypal"
   ],
   "scripts": {
-    "build": "medusa plugin:build",
+    "build": "npx medusa plugin:build && npm run build:types",
+    "build:types": "tsc --project tsconfig.types.json",
     "dev": "medusa plugin:develop",
     "prepublishOnly": "medusa plugin:build"
   },
