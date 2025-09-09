@@ -10,6 +10,14 @@
     ".medusa/server",
     ".medusa/types"
   ],
+  "bugs": {
+    "url": "https://github.com/alphabite-dev/medusa-paypal/issues"
+  },
+  "homepage": "https://github.com/alphabite-dev/medusa-paypal#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/alphabite-dev/medusa-paypal.git"
+  },
   "exports": {
     ".": {
       "types": "./.medusa/types/index.d.ts",
@@ -29,18 +37,17 @@
   },
   "keywords": [
     "medusa",
-    "plugin",
-    "medusa-plugin-other",
-    "medusa-plugin",
     "medusa-v2",
+    "medusa-plugin",
+    "medusa-plugin-integration",
+    "medusa-plugin-payment",
+    "medusa-paypal-payment",
     "medusa-alphabite",
     "medusa-alphabite-plugin",
     "medusa-alphabite-paypal-plugin",
-    "medusa-plugin-payment",
-    "medusa-plugin-integration",
-    "medusa-paypal-payment",
-    "payment",
-    "paypal"
+    "medusa-paypal-plugin",
+    "medusa-paypal-integration",
+    "medusa-paypal"
   ],
   "scripts": {
     "build": "npx medusa plugin:build && npm run build:types",
