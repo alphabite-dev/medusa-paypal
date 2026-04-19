@@ -368,6 +368,18 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
         items: data?.items,
         shipping_info: data?.shipping_info,
         email: data?.email,
+        locale:
+          data && "locale" in data && typeof data?.locale === "string"
+            ? data.locale
+            : undefined,
+        returnUrl:
+          data && "return_url" in data && typeof data?.return_url === "string"
+            ? data.return_url
+            : undefined,
+        cancelUrl:
+          data && "cancel_url" in data && typeof data?.cancel_url === "string"
+            ? data.cancel_url
+            : undefined,
       });
 
       return {

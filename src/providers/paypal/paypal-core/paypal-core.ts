@@ -27,6 +27,9 @@ export interface PaypalCreateOrderInput {
   shipping_info?: CartAddressDTO;
   items?: CartLineItemDTO[];
   email?: string;
+  locale?: string;
+  returnUrl?: string;
+  cancelUrl?: string;
 }
 
 export class PaypalService {
@@ -114,6 +117,9 @@ export class PaypalService {
     shipping_info,
     items,
     email,
+    locale,
+    returnUrl,
+    cancelUrl,
   }: PaypalCreateOrderInput): Promise<Order> {
     const ordersController = new OrdersController(this.client);
 
@@ -159,6 +165,9 @@ export class PaypalService {
           },
         ],
         applicationContext: {
+          returnUrl,
+          cancelUrl,
+          locale,
           ...(this.includeShippingData &&
             shippingData && {
               shippingPreference:
