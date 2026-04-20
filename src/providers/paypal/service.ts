@@ -525,6 +525,16 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
       await this.client.verifyWebhook({ headers, body: data });
 
       switch (data.event_type) {
+        case "CHECKOUT.ORDER.APPROVED": {
+          const purchaseUnit = data.resource.purchase_units[0];
+          return {
+            action: "authorized",
+            data: {
+              session_id: purchaseUnit.custom_id,
+              amount: Number(purchaseUnit.amount.value),
+            },
+          };
+        }
         case "PAYMENT.CAPTURE.COMPLETED":
           return {
             action: "captured",
@@ -539,13 +549,24 @@ export default class PaypalModuleService extends AbstractPaymentProvider<Alphabi
           };
       }
     } catch (e) {
-      return {
-        action: "failed",
-        data: {
-          session_id: payload.data.resource.custom_id,
-          amount: Number(payload.data.resource.amount.value),
-        },
-      };
+      console.error("PayPal webhook verification failed:");
+      console.error(e);
+      const purchaseUnit =
+        ("purchase_units" in payload.data.resource &&
+          payload.data.resource?.purchase_units?.[0]) ||
+        ("custom_id" in payload.data.resource && payload.data.resource) ||
+        null;
+      return purchaseUnit
+        ? {
+            action: "failed",
+            data: {
+              session_id: purchaseUnit.custom_id,
+              amount: Number(purchaseUnit.amount.value),
+            },
+          }
+        : {
+            action: "failed",
+          };
     }
   }
 
