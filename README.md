@@ -123,7 +123,7 @@ Add the plugin to your `medusa.config.ts` or `medusa-config.js`:
       options: {
         clientId: process.env.PAYPAL_CLIENT_ID,
         clientSecret: process.env.PAYPAL_CLIENT_SECRET,
-        isSandbox: process.env.PAYPAL_IS_SANDBOX === "true",
+        isSandbox: process.env.PAYPAL_SANDBOX === "true",
         webhookId: process.env.PAYPAL_WEBHOOK_ID,
         includeShippingData: false,
         includeCustomerData: false,
