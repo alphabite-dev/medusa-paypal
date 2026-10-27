@@ -18,7 +18,21 @@ import {
 import { CartAddressDTO, CartLineItemDTO } from "@medusajs/framework/types";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { AlphabitePaypalPluginOptionsType } from "../service";
-import { MedusaError } from "@medusajs/framework/utils";
+import { MathBN, MedusaError } from "@medusajs/framework/utils";
+
+// PayPal rejects amounts with more decimal places than the currency allows
+// (UNPROCESSABLE_ENTITY / DECIMAL_PRECISION), e.g. a 10.75% tax line that
+// leaves the cart total at 107.4825. These currencies take no decimals:
+// https://developer.paypal.com/reference/currency-codes/
+const ZERO_DECIMAL_CURRENCIES = ["HUF", "JPY", "TWD"];
+
+export const formatAmount = (
+  value: Parameters<typeof MathBN.convert>[0],
+  currency: string
+): string =>
+  MathBN.convert(value).toFixed(
+    ZERO_DECIMAL_CURRENCIES.includes(currency.toUpperCase()) ? 0 : 2
+  );
 
 export interface PaypalCreateOrderInput {
   amount: number;
@@ -123,7 +137,7 @@ export class PaypalService {
         quantity: item.quantity.toString(),
         unitAmount: {
           currencyCode: currency,
-          value: item.unit_price.toString(),
+          value: formatAmount(item.unit_price, currency),
         },
       })) || [];
 
@@ -143,12 +157,12 @@ export class PaypalService {
           {
             amount: {
               currencyCode: currency,
-              value: amount.toString(),
+              value: formatAmount(amount, currency),
               ...(hasItems && {
                 breakdown: {
                   itemTotal: {
                     currencyCode: currency,
-                    value: amount.toString(),
+                    value: formatAmount(amount, currency),
                   },
                 },
               }),
