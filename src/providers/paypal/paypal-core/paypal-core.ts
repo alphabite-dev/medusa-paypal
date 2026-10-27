@@ -14,11 +14,44 @@ import {
   OrderApplicationContextShippingPreference,
   OrderApplicationContextUserAction,
   FulfillmentType,
+  ResponseValidationError,
 } from "@paypal/paypal-server-sdk";
 import { CartAddressDTO, CartLineItemDTO } from "@medusajs/framework/types";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 import { AlphabitePaypalPluginOptionsType } from "../service";
 import { MedusaError } from "@medusajs/framework/utils";
+
+const camelizeKeys = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(camelizeKeys);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k.replace(/_([a-z0-9])/g, (_, c: string) => c.toUpperCase()),
+        camelizeKeys(v),
+      ])
+    );
+  }
+  return value;
+};
+
+/**
+ * The SDK validates every 2xx body against its models and throws
+ * ResponseValidationError when PayPal returns a field shape the models don't
+ * know. For a capture that means a COMPLETED (charged) payment surfaces as an
+ * error, e.g. a card captured over the PULSE debit network returns
+ * `network_transaction_reference: { network: "PULSE" }` without the `id` the
+ * model requires. In that case use the raw body, camelCased like the models.
+ */
+const recoverFromValidationError = (err: unknown): Order | null => {
+  if (!(err instanceof ResponseValidationError)) return null;
+  if (err.statusCode < 200 || err.statusCode >= 300) return null;
+  if (typeof err.body !== "string" || !err.body) return null;
+  try {
+    return camelizeKeys(JSON.parse(err.body)) as Order;
+  } catch {
+    return null;
+  }
+};
 
 export interface PaypalCreateOrderInput {
   amount: number;
@@ -175,19 +208,31 @@ export class PaypalService {
   }
 
   async captureOrder(id: string): Promise<Order> {
-    const capturedOrder = await this.ordersController.captureOrder({
-      id,
-    });
+    try {
+      const capturedOrder = await this.ordersController.captureOrder({
+        id,
+      });
 
-    return capturedOrder.result;
+      return capturedOrder.result;
+    } catch (err) {
+      const recovered = recoverFromValidationError(err);
+      if (!recovered) throw err;
+      return recovered;
+    }
   }
 
   async retrieveOrder(id: string): Promise<Order> {
-    const orderDetails = await this.ordersController.getOrder({
-      id,
-    });
+    try {
+      const orderDetails = await this.ordersController.getOrder({
+        id,
+      });
 
-    return orderDetails.result;
+      return orderDetails.result;
+    } catch (err) {
+      const recovered = recoverFromValidationError(err);
+      if (!recovered) throw err;
+      return recovered;
+    }
   }
 
   async authorizeOrder(id: string): Promise<OrderAuthorizeResponse> {
